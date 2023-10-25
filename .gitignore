@@ -1,0 +1,10 @@
+*.pyc
+.idea/
+__pycache__/
+*.pytest_cache/
+venv
+.env
+*.db
+*.json
+*.txt
+!requirements.txt
