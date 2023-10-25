@@ -6,7 +6,7 @@ import pytest
 from app.cruds import UserAccountCRUD, MessageCRUD
 from app.database import create_database
 from app.models import User
-from app.services import AuthService
+from app.services import AuthService, ChatService
 
 
 @pytest.fixture(scope='module')
@@ -30,15 +30,17 @@ def auth_service(user_account_crud):
     return AuthService(user_account_crud=user_account_crud)
 
 
+@pytest.fixture(scope='module')
+def chat_service(user_account_crud, message_crud):
+    return ChatService(user_account_crud=user_account_crud, message_crud=message_crud)
+
+
 un1 = f"first_{datetime.now()}"
 un2 = f"second_{datetime.now()}"
 un3 = f"third_{datetime.now()}"
 u1: User = None
 u2: User = None
 u3: User = None
-
-usernames: List[str] = [f"user_{datetime.now()}_{i}" for i in range(10)]
-users_list: List[User] = None
 
 
 @pytest.fixture(scope='module')
@@ -67,7 +69,5 @@ def user3(user_account_crud):
 
 @pytest.fixture(scope='module')
 def users(user_account_crud):
-    global usernames, users_list
-    if not users_list:
-        users_list = [user_account_crud.create(username) for username in usernames]
+    users_list = [user_account_crud.create(f"user_{datetime.now()}_{i}") for i in range(10)]
     return users_list

@@ -19,6 +19,17 @@ class Message(BaseModel):
     load_timestamp: Optional[datetime.datetime] = None
 
 
+class Dialog(BaseModel):
+    user: User
+    with_user: User
+
+    def __hash__(self):
+        return hash(self.user.id) + hash(self.with_user.id)
+
+    def __eq__(self, other):
+        return self.user.id == other.user.id and self.with_user.id == other.with_user.id
+
+
 class BaseResponse(BaseModel):
     success: bool = True
     error: Optional[str] = None
