@@ -8,6 +8,12 @@ class User(BaseModel):
     id: int
     username: str
 
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        return self.id == other.id and isinstance(other, User)
+
 
 class Message(BaseModel):
     id: int

@@ -1,4 +1,4 @@
-from queue import Queue
+from asyncio import Queue
 from typing import Dict, List
 
 from app.cruds import UserAccountCRUD, MessageCRUD
