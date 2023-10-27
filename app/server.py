@@ -3,7 +3,7 @@ import asyncio
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
 
-from app.handlers import handler_factory
+from app.handlers import handler_factory, check_online_sessions
 from app.logs import logger
 
 
@@ -29,6 +29,7 @@ async def main():
     host = 'localhost'
     port = 1875
     server = Server(host, port, handler_factory)
+    task = asyncio.create_task(check_online_sessions())
     await server.run()
 
 

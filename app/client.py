@@ -3,6 +3,7 @@ import enum
 import json
 from typing import Optional
 
+import aioconsole
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.helpers import composite, route
@@ -12,9 +13,10 @@ from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
+from app.logs import logger
 from app.schemas import LoginRequest, AuthResponse, User, RegisterRequest, RegisterResponse, LogoutRequest, \
     LogoutResponse, FindUsersRequest, FindUsersResponse, CheckSessionResponse, GetUserByIdRequest, \
-    GetUserByIdResponse, Message, SendMessageRequest, SendMessageResponse
+    GetUserByIdResponse, Message, SendMessageRequest, SendMessageResponse, OnlineMetric
 from app.utils import schema_to_bytes, payload_to_schema
 
 
@@ -27,6 +29,8 @@ class ChatClient:
         self._session: str = None
         self._user: User = None
         self._current_user_dialog: User = None
+        self._online = False
+        self._online_sending_task = None
 
     async def login(self, username: str):
         if self._session:
@@ -40,6 +44,7 @@ class ChatClient:
             print(f'successfully logged in as {response.user.username}')
             self._session = response.session
             self._user = response.user
+            self._online_sending_task = asyncio.create_task(self.send_online())
         else:
             print('cannot login:', response.error)
 
@@ -61,13 +66,11 @@ class ChatClient:
         request_payload = Payload(schema_to_bytes(request), composite(route('logout')))
         response_payload = await self._rsocket.request_response(request_payload)
         response: LogoutResponse = payload_to_schema(response_payload, LogoutResponse)
-        if response.success:
-            print(f'successfully logged out')
-            self._session = None
-            self._user = None
-            self._current_user_dialog = None
-        else:
-            print('cannot logout:', response.error)
+        self.stop_sending_online()
+        print(f'successfully logged out')
+        self._session = None
+        self._user = None
+        self._current_user_dialog = None
 
     async def find_users(self, username_part: str):
         request = FindUsersRequest(username_part=username_part, session=self._session)
@@ -146,6 +149,20 @@ class ChatClient:
             response: CheckSessionResponse = payload_to_schema(response_payload, CheckSessionResponse)
             print(f'error: {response.error}; you must logged in for perform this operation')
 
+    async def send_online(self):
+        self._online = True
+        # logger.debug('start sending online')
+        while self._online:
+            await asyncio.sleep(5)
+            payload = Payload(schema_to_bytes(OnlineMetric(session=self._session)),
+                              metadata=composite(route('online')))
+            await self._rsocket.fire_and_forget(payload)
+            # logger.debug('send online')
+
+    def stop_sending_online(self):
+        self._online = False
+        # logger.debug('stop sending online')
+
     def listen_for_messages(self):
         def print_message(data: bytes):
             message = Message.model_validate(json.loads(data))
@@ -195,20 +212,20 @@ async def main():
             command_text = f'\t-- {value[0]}. {value[1]}'
             print(command_text)
         while cmd != 'exit':
-            cmd = input('cmd: ')
+            cmd = await aioconsole.ainput('cmd: ')
             if cmd in CommandsEnum.LOGIN.value:
-                username = input('username: ')
+                username = await aioconsole.ainput('username: ')
                 await user.login(username)
             elif cmd in CommandsEnum.REGISTER.value:
-                username = input('username: ')
+                username = await aioconsole.ainput('username: ')
                 await user.register(username)
             elif cmd in CommandsEnum.LOGOUT.value:
                 await user.logout()
             elif cmd in CommandsEnum.FIND_USERS.value:
-                username_part = input('username_part: ')
+                username_part = await aioconsole.ainput('username_part: ')
                 await user.find_users(username_part)
             elif cmd in CommandsEnum.SET_DIALOG.value:
-                with_user_id = input('with_user_id: ')
+                with_user_id = await aioconsole.ainput('with_user_id: ')
                 try:
                     with_user_id = int(with_user_id)
                 except ValueError:
@@ -218,7 +235,7 @@ async def main():
                     if dialog_user:
                         print(f'start messaging with user {dialog_user}')
                         while True:
-                            message_text = input(f'message to {dialog_user}: ')
+                            message_text = await aioconsole.ainput(f'message to {dialog_user}: ')
                             if message_text in CommandsEnum.QUIT_DIALOG.value:
                                 break
                             await user.send_message(message_text)

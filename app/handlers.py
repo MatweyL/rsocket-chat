@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 from typing import Awaitable, Type, Dict
 
 from pydantic import BaseModel
@@ -15,19 +16,36 @@ from app import schemas
 from app.cruds import MessageCRUD, UserAccountCRUD
 from app.database import create_session
 from app.schemas import LoginRequest, RegisterRequest, LogoutRequest, FindUsersRequest, GetUserByIdRequest, \
-    SendMessageRequest, User, Message
+    SendMessageRequest, User, Message, OnlineMetric
 from app.services import AuthService, ChatService, AuthMiddleWare
 from app.utils import payload_to_schema, schema_to_bytes
 
 session = create_session('chat.db')
 user_account_crud = UserAccountCRUD(session)
 message_crud = MessageCRUD(session)
-active_users: Dict[str, schemas.User] = {}
-auth_service = AuthService(user_account_crud, active_users)
+logged_in_users: Dict[str, schemas.User] = {}
+online_sessions: Dict[str, float] = {}
+auth_service = AuthService(user_account_crud, logged_in_users)
 chat_service = ChatService(user_account_crud, message_crud)
-auth_middleware = AuthMiddleWare(active_users)
+auth_middleware = AuthMiddleWare(logged_in_users)
 
 incoming_messages: asyncio.Queue = asyncio.Queue()
+SESSION_INACTIVE_PERIOD_S = 10
+
+
+async def check_online_sessions():
+    while True:
+        await asyncio.sleep(10)
+        offline_sessions = []
+        for user_session, timestamp in online_sessions.items():
+            if datetime.datetime.now().timestamp() - timestamp > SESSION_INACTIVE_PERIOD_S:
+                offline_sessions.append(user_session)
+        for offline_session in offline_sessions:
+            if offline_session in online_sessions:
+                online_sessions.pop(offline_session)
+            if offline_session in logged_in_users:
+                print(f'logged out {logged_in_users[offline_session]}')
+                logged_in_users.pop(offline_session)
 
 
 def handler_factory() -> RoutingRequestHandler:
@@ -38,7 +56,8 @@ def handler_factory() -> RoutingRequestHandler:
         request: LoginRequest = payload_to_schema(payload, LoginRequest)
         response = auth_service.auth(request)
         if response.success:
-            active_users[response.session] = response.user
+            logged_in_users[response.session] = response.user
+            online_sessions[response.session] = datetime.datetime.now().timestamp()
         return create_response(schema_to_bytes(response))
 
     @router.response('register')
@@ -51,6 +70,8 @@ def handler_factory() -> RoutingRequestHandler:
     async def logout(payload: Payload) -> Awaitable[Payload]:
         request: LogoutRequest = payload_to_schema(payload, LogoutRequest)
         response = auth_service.logout(request)
+        if response.success:
+            online_sessions.pop(request.session)
         return create_response(schema_to_bytes(response))
 
     @router.response('find_users')
@@ -103,5 +124,10 @@ def handler_factory() -> RoutingRequestHandler:
                     self._subscriber.on_next(next_payload)
 
         return MessagePublisher(incoming_messages)
+
+    @router.fire_and_forget('online')
+    async def receive_online(payload: Payload):
+        metric = payload_to_schema(payload, OnlineMetric)
+        online_sessions[metric.session] = datetime.datetime.now().timestamp()
 
     return RoutingRequestHandler(router)

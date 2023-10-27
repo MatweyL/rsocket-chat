@@ -115,3 +115,11 @@ class SendMessageRequest(BaseRequest):
 
 class GetUserByIdRequest(BaseRequest):
     user_id: int
+
+
+class BaseMetric(BaseModel):
+    pass
+
+
+class OnlineMetric(BaseMetric):
+    session: str
