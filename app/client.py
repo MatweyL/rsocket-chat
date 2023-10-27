@@ -1,7 +1,10 @@
 import asyncio
 import enum
+import json
 from typing import Optional
 
+from reactivestreams.subscriber import DefaultSubscriber
+from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.helpers import composite, route
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import single_transport_provider
@@ -11,13 +14,15 @@ from rsocket.transports.tcp import TransportTCP
 
 from app.schemas import LoginRequest, AuthResponse, User, RegisterRequest, RegisterResponse, LogoutRequest, \
     LogoutResponse, FindUsersRequest, FindUsersResponse, CheckSessionResponse, GetUserByIdRequest, \
-    GetUserByIdResponse
+    GetUserByIdResponse, Message, SendMessageRequest, SendMessageResponse
 from app.utils import schema_to_bytes, payload_to_schema
 
 
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
+
+        self._message_subscriber: Optional = None
 
         self._session: str = None
         self._user: User = None
@@ -110,6 +115,7 @@ class ChatClient:
             return
         print(f'set current dialog with user {user}')
         self._current_user_dialog = user
+        self.listen_for_messages()
         return user
 
     async def quit_dialog(self):
@@ -121,12 +127,51 @@ class ChatClient:
         else:
             print(f'quit from dialog: {self._current_user_dialog}')
             self._current_user_dialog = None
+            self.stop_listening_for_messages()
 
     async def get_dialog_messages(self):
         pass
 
-    async def send_message(self):
-        pass
+    async def send_message(self, message_text: str):
+        request = SendMessageRequest(from_user_id=self._user.id,
+                                     to_user_id=self._current_user_dialog.id,
+                                     message_text=message_text,
+                                     session=self._session)
+        request_payload = Payload(schema_to_bytes(request), composite(route('send_message')))
+        response_payload = await self._rsocket.request_response(request_payload)
+        response: SendMessageResponse = payload_to_schema(response_payload, SendMessageResponse)
+        if response.success:
+            pass
+        else:
+            response: CheckSessionResponse = payload_to_schema(response_payload, CheckSessionResponse)
+            print(f'error: {response.error}; you must logged in for perform this operation')
+
+    def listen_for_messages(self):
+        def print_message(data: bytes):
+            message = Message.model_validate(json.loads(data))
+            if message.from_user.id == self._current_user_dialog.id:
+                print(f'message from {message.from_user}: {message.message_text}')
+
+        class MessageListener(DefaultSubscriber, DefaultSubscription):
+            def __init__(self):
+                super(MessageListener, self).__init__()
+
+            def on_next(self, value, is_complete=False):
+                print_message(value.data)
+
+            def on_error(self, exception: Exception):
+                print(exception)
+
+            def cancel(self):
+                self.subscription.cancel()
+
+        self._message_subscriber = MessageListener()
+        self._rsocket.request_stream(
+            Payload(metadata=composite(route('messages.incoming')))
+        ).subscribe(self._message_subscriber)
+
+    def stop_listening_for_messages(self):
+        self._message_subscriber.cancel()
 
 
 class CommandsEnum(enum.Enum):
@@ -176,6 +221,7 @@ async def main():
                             message_text = input(f'message to {dialog_user}: ')
                             if message_text in CommandsEnum.QUIT_DIALOG.value:
                                 break
+                            await user.send_message(message_text)
 
 
 if __name__ == "__main__":
