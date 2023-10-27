@@ -1,9 +1,11 @@
 import asyncio
 import enum
 import json
+from asyncio import Event
 from typing import Optional
 
 import aioconsole
+from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.helpers import composite, route
@@ -13,11 +15,31 @@ from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
-from app.logs import logger
 from app.schemas import LoginRequest, AuthResponse, User, RegisterRequest, RegisterResponse, LogoutRequest, \
     LogoutResponse, FindUsersRequest, FindUsersResponse, CheckSessionResponse, GetUserByIdRequest, \
-    GetUserByIdResponse, Message, SendMessageRequest, SendMessageResponse, OnlineMetric
+    GetUserByIdResponse, Message, SendMessageRequest, SendMessageResponse, OnlineMetric, TotalOnlineMetric, \
+    MetricRequest
 from app.utils import schema_to_bytes, payload_to_schema
+
+
+class StatisticsHandler(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+
+    def __init__(self):
+        super().__init__()
+        self.done = Event()
+
+    def on_next(self, value: Payload, is_complete=False):
+        total_online = payload_to_schema(value, TotalOnlineMetric)
+        print('total online:', total_online)
+
+        if is_complete:
+            self.done.set()
+
+    def cancel(self):
+        self.subscription.cancel()
+
+    def start_statistics_requesting(self,):
+        self._subscriber.on_next(schema_to_bytes(MetricRequest()))
 
 
 class ChatClient:
@@ -31,6 +53,7 @@ class ChatClient:
         self._current_user_dialog: User = None
         self._online = False
         self._online_sending_task = None
+        self._statistics_subscriber: StatisticsHandler = None
 
     async def login(self, username: str):
         if self._session:
@@ -45,6 +68,7 @@ class ChatClient:
             self._session = response.session
             self._user = response.user
             self._online_sending_task = asyncio.create_task(self.send_online())
+            self.listen_for_statistics(MetricRequest())
         else:
             print('cannot login:', response.error)
 
@@ -68,6 +92,7 @@ class ChatClient:
         response: LogoutResponse = payload_to_schema(response_payload, LogoutResponse)
         self.stop_sending_online()
         print(f'successfully logged out')
+        self._statistics_subscriber.cancel()
         self._session = None
         self._user = None
         self._current_user_dialog = None
@@ -189,6 +214,18 @@ class ChatClient:
 
     def stop_listening_for_messages(self):
         self._message_subscriber.cancel()
+
+    def listen_for_statistics(self, request: MetricRequest) -> StatisticsHandler:
+        self._statistics_subscriber = StatisticsHandler()
+
+        response = self._rsocket.request_channel(Payload(
+            data=schema_to_bytes(request),
+            metadata=composite(route('statistics')
+                               )), publisher=self._statistics_subscriber)
+
+        response.subscribe(self._statistics_subscriber)
+
+        return self._statistics_subscriber
 
 
 class CommandsEnum(enum.Enum):

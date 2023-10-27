@@ -123,3 +123,11 @@ class BaseMetric(BaseModel):
 
 class OnlineMetric(BaseMetric):
     session: str
+
+
+class TotalOnlineMetric(BaseMetric):
+    total: int
+
+
+class MetricRequest(BaseRequest):
+    pass

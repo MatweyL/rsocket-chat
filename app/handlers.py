@@ -4,7 +4,7 @@ from typing import Awaitable, Type, Dict
 
 from pydantic import BaseModel
 from reactivestreams.publisher import DefaultPublisher
-from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import create_response, utf8_decode
@@ -15,8 +15,9 @@ from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from app import schemas
 from app.cruds import MessageCRUD, UserAccountCRUD
 from app.database import create_session
+from app.logs import logger
 from app.schemas import LoginRequest, RegisterRequest, LogoutRequest, FindUsersRequest, GetUserByIdRequest, \
-    SendMessageRequest, User, Message, OnlineMetric
+    SendMessageRequest, User, Message, OnlineMetric, MetricRequest, TotalOnlineMetric
 from app.services import AuthService, ChatService, AuthMiddleWare
 from app.utils import payload_to_schema, schema_to_bytes
 
@@ -130,5 +131,43 @@ def handler_factory() -> RoutingRequestHandler:
     async def receive_online(payload: Payload):
         metric = payload_to_schema(payload, OnlineMetric)
         online_sessions[metric.session] = datetime.datetime.now().timestamp()
+
+    @router.channel('statistics')
+    async def send_statistics(payload: Payload):
+
+        request: MetricRequest = payload_to_schema(payload, MetricRequest)
+
+        class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+
+            def __init__(self, requested_statistics: MetricRequest):
+                super().__init__()
+                self._requested_statistics = requested_statistics
+
+            def cancel(self):
+                self._sender.cancel()
+
+            def subscribe(self, subscriber: Subscriber):
+                super().subscribe(subscriber)
+                subscriber.on_subscribe(self)
+                self._sender = asyncio.create_task(self._statistics_sender())
+
+            async def _statistics_sender(self):
+                while True:
+                    try:
+                        await asyncio.sleep(5)
+                        next_message = TotalOnlineMetric(total=len(online_sessions))
+
+                        self._subscriber.on_next(Payload(schema_to_bytes(next_message)))
+                    except Exception:
+                        logger.error('Statistics', exc_info=True)
+
+            def on_next(self, value: Payload, is_complete=False):
+                request = payload_to_schema(value, MetricRequest)
+
+                logger.info(f'Received statistics request {request.ids}, {request.period_seconds}')
+
+        response = StatisticsChannel(request)
+
+        return response, response
 
     return RoutingRequestHandler(router)
