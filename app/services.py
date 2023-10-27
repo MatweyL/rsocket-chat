@@ -4,7 +4,8 @@ from typing import Dict, List
 from app import schemas
 from app.cruds import UserAccountCRUD, MessageCRUD
 from app.schemas import RegisterResponse, AuthResponse, Dialog, Message, User, CheckSessionResponse, LoginRequest, \
-    RegisterRequest, BaseRequest, FindUsersRequest, GetDialogsRequest, SendMessageRequest, GetDialogMessagesRequest
+    RegisterRequest, BaseRequest, FindUsersRequest, GetDialogsRequest, SendMessageRequest, GetDialogMessagesRequest, \
+    SendMessageResponse, GetDialogsResponse, GetDialogMessagesResponse, FindUsersResponse
 
 
 class AuthMiddleWare:
@@ -55,30 +56,30 @@ class ChatService:
         self._message_crud = message_crud
         self._finding_limit = finding_limit
 
-    def find_users(self, request: FindUsersRequest) -> List[User]:
+    def find_users(self, request: FindUsersRequest) -> FindUsersResponse:
         username_part = request.username_part
         found_users = self._user_account_crud.find_by_username_part(username_part, self._finding_limit)
-        return found_users
+        return FindUsersResponse(users=found_users)
 
-    def get_dialog_messages(self, request: GetDialogMessagesRequest) -> List[Message]:
+    def get_dialog_messages(self, request: GetDialogMessagesRequest) -> GetDialogMessagesResponse:
         user_id = request.user_id
         with_user_id = request.with_user_id
         dialog_messages = self._message_crud.get_user_dialog(user_id, with_user_id)
-        return dialog_messages
+        return GetDialogMessagesResponse(messages=dialog_messages)
 
-    def get_dialogs(self, request: GetDialogsRequest) -> List[Dialog]:
+    def get_dialogs(self, request: GetDialogsRequest) -> GetDialogsResponse:
         user_id = request.user_id
         user = self._user_account_crud.get_by_id(user_id)
         dialogs_users_ids = self._message_crud.get_user_dialogs_users_ids(user_id)
         dialogs_users = [self._user_account_crud.get_by_id(dialog_user_id) for dialog_user_id in dialogs_users_ids]
-        return [Dialog(user=user, with_user=dialog_user) for dialog_user in dialogs_users]
+        return GetDialogsResponse(dialogs=[Dialog(user=user, with_user=dialog_user) for dialog_user in dialogs_users])
 
-    def send_message(self, request: SendMessageRequest) -> Message:
+    def send_message(self, request: SendMessageRequest) -> SendMessageResponse:
         message_text: str = request.message_text
         from_user_id: int = request.from_user_id
         to_user_id: int = request.to_user_id
         message = self._message_crud.create(message_text, from_user_id, to_user_id)
-        return message
+        return SendMessageResponse(message=message)
 
 
 class NewMessagesStorage:

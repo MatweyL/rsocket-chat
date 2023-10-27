@@ -6,13 +6,13 @@ def test_get_dialog(chat_service, users):
     user2 = users[-2]
     user3 = users[-3]
     get_dialogs_request = GetDialogsRequest(user_id=user1.id)
-    dialogs = chat_service.get_dialogs(get_dialogs_request)
+    dialogs = chat_service.get_dialogs(get_dialogs_request).dialogs
     assert not dialogs
     request = SendMessageRequest(message_text='test',
                                  from_user_id=user1.id,
                                  to_user_id=user2.id)
     chat_service.send_message(request)
-    dialogs = chat_service.get_dialogs(get_dialogs_request)
+    dialogs = chat_service.get_dialogs(get_dialogs_request).dialogs
     assert len(dialogs) == 1
     assert dialogs[0].user.id == user1.id
     assert dialogs[0].with_user.id == user2.id
@@ -21,7 +21,7 @@ def test_get_dialog(chat_service, users):
                                  to_user_id=user1.id)
     chat_service.send_message(request)
 
-    dialogs = chat_service.get_dialogs(get_dialogs_request)
+    dialogs = chat_service.get_dialogs(get_dialogs_request).dialogs
     assert len(dialogs) == 2
     for dialog in dialogs:
         assert dialog.user.id == user1.id
@@ -32,7 +32,7 @@ def test_get_dialog_messages(chat_service, users):
     user2 = users[-2]
     get_dialog_messages_request = GetDialogMessagesRequest(user_id=user1.id,
                                                            with_user_id=user2.id)
-    messages = chat_service.get_dialog_messages(get_dialog_messages_request)
+    messages = chat_service.get_dialog_messages(get_dialog_messages_request).messages
     assert not messages
     sent_messages = [
 
@@ -52,5 +52,5 @@ def test_get_dialog_messages(chat_service, users):
                                                      from_user_id=user1.id,
                                                      to_user_id=user2.id)),
     ]
-    messages = chat_service.get_dialog_messages(get_dialog_messages_request)
+    messages = chat_service.get_dialog_messages(get_dialog_messages_request).messages
     assert len(messages) == len(sent_messages)

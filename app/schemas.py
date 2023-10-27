@@ -1,7 +1,7 @@
 import datetime
-from typing import Optional
+from typing import Optional, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class User(BaseModel):
@@ -52,6 +52,22 @@ class AuthResponse(BaseResponse):
 
 class CheckSessionResponse(BaseResponse):
     session: str
+
+
+class FindUsersResponse(BaseResponse):
+    users: List[User] = Field(default_factory=list)
+
+
+class GetDialogMessagesResponse(BaseResponse):
+    messages: List[Message] = Field(default_factory=list)
+
+
+class GetDialogsResponse(BaseResponse):
+    dialogs: List[Dialog] = Field(default_factory=list)
+
+
+class SendMessageResponse(BaseResponse):
+    message: Optional[Message] = None
 
 
 class BaseRequest(BaseModel):
