@@ -10,7 +10,7 @@ from rsocket.transports.tcp import TransportTCP
 
 from app.logs import logger
 from app.schemas import LoginRequest, AuthResponse, User, RegisterRequest, RegisterResponse, LogoutRequest, \
-    LogoutResponse
+    LogoutResponse, FindUsersRequest, FindUsersResponse, CheckSessionResponse
 from app.utils import schema_to_bytes, payload_to_schema
 
 
@@ -60,6 +60,18 @@ class ChatClient:
         else:
             print('cannot logout:', response.error)
 
+    async def find_users(self, username_part: str):
+        request = FindUsersRequest(username_part=username_part, session=self._session)
+        request_payload = Payload(schema_to_bytes(request), composite(route('find_users')))
+        response_payload = await self._rsocket.request_response(request_payload)
+        response: FindUsersResponse = payload_to_schema(response_payload, FindUsersResponse)
+        if response.success:
+            print(f'found {len(response.users)} users: ')
+            for user in response.users:
+                print(f'-- {user}')
+        else:
+            response: CheckSessionResponse = payload_to_schema(response_payload, CheckSessionResponse)
+            print(f'cannot find users: {response.error}; you must logged in for perform this operaion')
 
 async def main():
     connection = await asyncio.open_connection('localhost', 1875)
@@ -68,20 +80,24 @@ async def main():
         user = ChatClient(client)
         cmd = ''
         print("""commands:
-         - login: enter username
-         - register: enter username
-         - logout
+         - 1. login: enter username
+         - 2. register: enter username
+         - 3. logout
+         - 4. find_users: enter username part
          """)
         while cmd != 'exit':
             cmd = input('cmd: ')
-            if cmd == 'login':
+            if cmd in ('login', '1'):
                 username = input('username: ')
                 await user.login(username)
-            elif cmd == 'register':
+            elif cmd in ('register', '2'):
                 username = input('username: ')
                 await user.register(username)
-            elif cmd == 'logout':
+            elif cmd in ('logout', '3'):
                 await user.logout()
+            elif cmd in ('find_users', '4'):
+                username_part = input('username_part: ')
+                await user.find_users(username_part)
 
 
 if __name__ == "__main__":

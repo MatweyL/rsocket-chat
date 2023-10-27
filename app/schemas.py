@@ -55,7 +55,7 @@ class LogoutResponse(BaseResponse):
 
 
 class CheckSessionResponse(BaseResponse):
-    session: str
+    session: Optional[str] = None
 
 
 class FindUsersResponse(BaseResponse):
