@@ -64,3 +64,22 @@ class LoginRequest(BaseRequest):
 
 class RegisterRequest(BaseRequest):
     username: str
+
+
+class FindUsersRequest(BaseRequest):
+    username_part: str
+
+
+class GetDialogMessagesRequest(BaseRequest):
+    user_id: int
+    with_user_id: int
+
+
+class GetDialogsRequest(BaseRequest):
+    user_id: int
+
+
+class SendMessageRequest(BaseRequest):
+    message_text: str
+    from_user_id: int
+    to_user_id: int

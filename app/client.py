@@ -28,7 +28,7 @@ class ChatClient:
         response_payload = await self._rsocket.request_response(request_payload)
         response: AuthResponse = payload_to_schema(response_payload, AuthResponse)
         if response.success:
-            print(f'successfully logged in as {response.user}')
+            print(f'successfully logged in as {response.user.username}')
             self._session = response.session
             self._user = response.user
         else:
@@ -40,7 +40,7 @@ class ChatClient:
         response_payload = await self._rsocket.request_response(request_payload)
         response: RegisterResponse = payload_to_schema(response_payload, RegisterResponse)
         if response.success:
-            print(f'successfully registered as {response.user}; please, auth with your credentials')
+            print(f'successfully registered as {response.user.username}; please, auth with your credentials')
         else:
             print('cannot register:', response.error)
 
