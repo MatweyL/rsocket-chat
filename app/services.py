@@ -5,7 +5,8 @@ from app import schemas
 from app.cruds import UserAccountCRUD, MessageCRUD
 from app.schemas import RegisterResponse, AuthResponse, Dialog, Message, User, CheckSessionResponse, LoginRequest, \
     RegisterRequest, BaseRequest, FindUsersRequest, GetDialogsRequest, SendMessageRequest, GetDialogMessagesRequest, \
-    SendMessageResponse, GetDialogsResponse, GetDialogMessagesResponse, FindUsersResponse, LogoutResponse, LogoutRequest
+    SendMessageResponse, GetDialogsResponse, GetDialogMessagesResponse, FindUsersResponse, LogoutResponse, \
+    LogoutRequest, GetUserByIdResponse, GetUserByIdRequest
 
 
 class AuthMiddleWare:
@@ -64,6 +65,11 @@ class ChatService:
         self._user_account_crud = user_account_crud
         self._message_crud = message_crud
         self._finding_limit = finding_limit
+
+    def get_user_by_id(self, request: GetUserByIdRequest) -> GetUserByIdResponse:
+        user_id = request.user_id
+        user = self._user_account_crud.get_by_id(user_id)
+        return GetUserByIdResponse(user=user)
 
     def find_users(self, request: FindUsersRequest) -> FindUsersResponse:
         username_part = request.username_part

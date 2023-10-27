@@ -10,7 +10,7 @@ from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from app import schemas
 from app.cruds import MessageCRUD, UserAccountCRUD
 from app.database import create_session
-from app.schemas import LoginRequest, RegisterRequest, LogoutRequest, FindUsersRequest
+from app.schemas import LoginRequest, RegisterRequest, LogoutRequest, FindUsersRequest, GetUserByIdRequest
 from app.services import AuthService, ChatService, AuthMiddleWare
 from app.utils import payload_to_schema, schema_to_bytes
 
@@ -53,6 +53,15 @@ def handler_factory() -> RoutingRequestHandler:
         if not check_response.success:
             return create_response(schema_to_bytes(check_response))
         response = chat_service.find_users(request)
+        return create_response(schema_to_bytes(response))
+
+    @router.response('get_user_by_id')
+    async def get_user_by_id(payload: Payload) -> Awaitable[Payload]:
+        request: GetUserByIdRequest = payload_to_schema(payload, GetUserByIdRequest)
+        check_response = auth_middleware.check_session(request)
+        if not check_response.success:
+            return create_response(schema_to_bytes(check_response))
+        response = chat_service.get_user_by_id(request)
         return create_response(schema_to_bytes(response))
 
     return RoutingRequestHandler(router)

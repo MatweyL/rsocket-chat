@@ -74,6 +74,10 @@ class SendMessageResponse(BaseResponse):
     message: Optional[Message] = None
 
 
+class GetUserByIdResponse(BaseResponse):
+    user: Optional[User] = None
+
+
 class BaseRequest(BaseModel):
     session: Optional[str] = None
 
@@ -107,3 +111,7 @@ class SendMessageRequest(BaseRequest):
     message_text: str
     from_user_id: int
     to_user_id: int
+
+
+class GetUserByIdRequest(BaseRequest):
+    user_id: int
