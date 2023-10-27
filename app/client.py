@@ -9,7 +9,8 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 from app.logs import logger
-from app.schemas import LoginRequest, AuthResponse, User, RegisterRequest, RegisterResponse
+from app.schemas import LoginRequest, AuthResponse, User, RegisterRequest, RegisterResponse, LogoutRequest, \
+    LogoutResponse
 from app.utils import schema_to_bytes, payload_to_schema
 
 
@@ -44,6 +45,21 @@ class ChatClient:
         else:
             print('cannot register:', response.error)
 
+    async def logout(self):
+        if not self._session:
+            print('cannot logout: operation can be performed if you logged in')
+            return
+        request = LogoutRequest(session=self._session)
+        request_payload = Payload(schema_to_bytes(request), composite(route('logout')))
+        response_payload = await self._rsocket.request_response(request_payload)
+        response: LogoutResponse = payload_to_schema(response_payload, LogoutResponse)
+        if response.success:
+            print(f'successfully logged out')
+            self._session = None
+            self._user = None
+        else:
+            print('cannot logout:', response.error)
+
 
 async def main():
     connection = await asyncio.open_connection('localhost', 1875)
@@ -54,6 +70,7 @@ async def main():
         print("""commands:
          - login: enter username
          - register: enter username
+         - logout
          """)
         while cmd != 'exit':
             cmd = input('cmd: ')
@@ -63,6 +80,8 @@ async def main():
             elif cmd == 'register':
                 username = input('username: ')
                 await user.register(username)
+            elif cmd == 'logout':
+                await user.logout()
 
 
 if __name__ == "__main__":

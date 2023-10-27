@@ -50,6 +50,10 @@ class AuthResponse(BaseResponse):
     session: Optional[str] = None
 
 
+class LogoutResponse(BaseResponse):
+    pass
+
+
 class CheckSessionResponse(BaseResponse):
     session: str
 
@@ -80,6 +84,10 @@ class LoginRequest(BaseRequest):
 
 class RegisterRequest(BaseRequest):
     username: str
+
+
+class LogoutRequest(BaseRequest):
+    pass
 
 
 class FindUsersRequest(BaseRequest):

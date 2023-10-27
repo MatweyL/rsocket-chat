@@ -10,7 +10,7 @@ from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from app import schemas
 from app.cruds import MessageCRUD, UserAccountCRUD
 from app.database import create_session
-from app.schemas import LoginRequest, RegisterRequest
+from app.schemas import LoginRequest, RegisterRequest, LogoutRequest
 from app.services import AuthService, ChatService, AuthMiddleWare
 from app.utils import payload_to_schema, schema_to_bytes
 
@@ -28,16 +28,22 @@ def handler_factory() -> RoutingRequestHandler:
 
     @router.response('login')
     async def login(payload: Payload) -> Awaitable[Payload]:
-        login_request: LoginRequest = payload_to_schema(payload, LoginRequest)
-        auth_response = auth_service.auth(login_request)
-        if auth_response.success:
-            active_users[auth_response.session] = auth_response.user
-        return create_response(schema_to_bytes(auth_response))
+        request: LoginRequest = payload_to_schema(payload, LoginRequest)
+        response = auth_service.auth(request)
+        if response.success:
+            active_users[response.session] = response.user
+        return create_response(schema_to_bytes(response))
 
     @router.response('register')
-    async def login(payload: Payload) -> Awaitable[Payload]:
-        register_request: RegisterRequest = payload_to_schema(payload, RegisterRequest)
-        register_response = auth_service.register(register_request)
-        return create_response(schema_to_bytes(register_response))
+    async def register(payload: Payload) -> Awaitable[Payload]:
+        request: RegisterRequest = payload_to_schema(payload, RegisterRequest)
+        response = auth_service.register(request)
+        return create_response(schema_to_bytes(response))
+
+    @router.response('logout')
+    async def logout(payload: Payload) -> Awaitable[Payload]:
+        request: LogoutRequest = payload_to_schema(payload, LogoutRequest)
+        response = auth_service.logout(request)
+        return create_response(schema_to_bytes(response))
 
     return RoutingRequestHandler(router)

@@ -5,7 +5,7 @@ from app import schemas
 from app.cruds import UserAccountCRUD, MessageCRUD
 from app.schemas import RegisterResponse, AuthResponse, Dialog, Message, User, CheckSessionResponse, LoginRequest, \
     RegisterRequest, BaseRequest, FindUsersRequest, GetDialogsRequest, SendMessageRequest, GetDialogMessagesRequest, \
-    SendMessageResponse, GetDialogsResponse, GetDialogMessagesResponse, FindUsersResponse
+    SendMessageResponse, GetDialogsResponse, GetDialogMessagesResponse, FindUsersResponse, LogoutResponse, LogoutRequest
 
 
 class AuthMiddleWare:
@@ -47,6 +47,15 @@ class AuthService:
             self._active_users[session] = user
             response = AuthResponse(user=user, session=session)
         return response
+
+    def logout(self, request: LogoutRequest) -> LogoutResponse:
+        try:
+            session = request.session
+            self._active_users.pop(session)
+        except KeyError:
+            return LogoutResponse(success=False, error='wrong session')
+        else:
+            return LogoutResponse(success=True)
 
 
 class ChatService:
