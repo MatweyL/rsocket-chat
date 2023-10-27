@@ -99,6 +99,7 @@ def handler_factory() -> RoutingRequestHandler:
         if not check_response.success:
             return create_response(schema_to_bytes(check_response))
         response = chat_service.send_message(request)
+        incoming_messages.put_nowait(response.message)
         return create_response(schema_to_bytes(response))
 
     @router.stream('messages.incoming')
