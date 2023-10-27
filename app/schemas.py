@@ -47,3 +47,20 @@ class RegisterResponse(BaseResponse):
 
 class AuthResponse(BaseResponse):
     user: Optional[User] = None
+    session: Optional[str] = None
+
+
+class CheckSessionResponse(BaseResponse):
+    session: str
+
+
+class BaseRequest(BaseModel):
+    session: Optional[str] = None
+
+
+class LoginRequest(BaseRequest):
+    username: str
+
+
+class RegisterRequest(BaseRequest):
+    username: str

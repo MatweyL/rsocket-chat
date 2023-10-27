@@ -1,31 +1,50 @@
 from asyncio import Queue
 from typing import Dict, List
 
+from app import schemas
 from app.cruds import UserAccountCRUD, MessageCRUD
-from app.schemas import RegisterResponse, AuthResponse, Dialog, Message, User
+from app.schemas import RegisterResponse, AuthResponse, Dialog, Message, User, CheckSessionResponse, LoginRequest, \
+    RegisterRequest, BaseRequest
+
+
+class AuthMiddleWare:
+
+    def __init__(self, active_users: Dict[str, schemas.User]):
+        self._active_users: Dict[str, schemas.User] = active_users
+
+    def check_session(self, request: BaseRequest) -> CheckSessionResponse:
+        session = request.session
+        if session in self._active_users:
+            return CheckSessionResponse(success=True, session=session)
+        return CheckSessionResponse(success=False, session=session)
 
 
 class AuthService:
 
-    def __init__(self, user_account_crud: UserAccountCRUD):
+    def __init__(self, user_account_crud: UserAccountCRUD,
+                 active_users: Dict[str, schemas.User]):
         self._user_account_crud = user_account_crud
+        self._active_users: Dict[str, schemas.User] = active_users
 
-    def register(self, username: str) -> RegisterResponse:
+    def register(self, request: RegisterRequest) -> RegisterResponse:
         try:
-            user = self._user_account_crud.create(username)
+            user = self._user_account_crud.create(request.username)
         except BaseException as e:
             response = RegisterResponse(success=False, error=str(e))
         else:
             response = RegisterResponse(user=user)
         return response
 
-    def auth(self, username: str) -> AuthResponse:
+    def auth(self, request: LoginRequest) -> AuthResponse:
+        username = request.username
         try:
             user = self._user_account_crud.get_by_username(username)
         except BaseException as e:
             response = AuthResponse(success=False, error=str(e))
         else:
-            response = AuthResponse(user=user)
+            session = username + '_session'
+            self._active_users[session] = user
+            response = AuthResponse(user=user, session=session)
         return response
 
 

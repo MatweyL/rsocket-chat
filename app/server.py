@@ -3,6 +3,7 @@ import asyncio
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
 
+from app.handlers import handler_factory
 from app.logs import logger
 
 
@@ -25,9 +26,9 @@ class Server:
 
 
 async def main():
-    host = '0.0.0.0'
-    port = '1875'
-    server = Server(host, port, None)
+    host = 'localhost'
+    port = 1875
+    server = Server(host, port, handler_factory)
     await server.run()
 
 

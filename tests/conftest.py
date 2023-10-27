@@ -4,14 +4,14 @@ from typing import List
 import pytest
 
 from app.cruds import UserAccountCRUD, MessageCRUD
-from app.database import create_database
+from app.database import create_session
 from app.models import User
 from app.services import AuthService, ChatService
 
 
 @pytest.fixture(scope='module')
 def session():
-    s = create_database(r"D:\University\7_semestr\rksp\practice_04_rsocket\teststest.db")
+    s = create_session(r"D:\University\7_semestr\rksp\practice_04_rsocket\teststest.db")
     return s
 
 
